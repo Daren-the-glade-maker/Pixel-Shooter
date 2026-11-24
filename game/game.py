@@ -79,7 +79,8 @@ class SkylineGame:
         try:
             engine_save.set_location("skyline_strike.save")
             self.best_score = int(engine_save.load("best_score", 0))
-        except Exception:
+        except Exception as e:
+            print("WARN: engine_save load failed:", e)
             self.best_score = 0
 
         # Camera
@@ -373,8 +374,8 @@ class SkylineGame:
             self.best_score = self.score
             try:
                 engine_save.save("best_score", self.best_score)
-            except Exception:
-                pass
+            except Exception as e:
+                print("WARN: engine_save save failed:", e)
 
     def _update_hud(self):
         if self.player.hp != self._hud_last_hp:
@@ -455,7 +456,7 @@ class SkylineGame:
     def _enter_title(self):
         self.state = STATE_TITLE
         self._set_hud_visible(False)
-        best_line = "BEST: {:05d}".format(self.best_score) if self.best_score > 0 else "5 GUNS - 3 SECTORS"
+        best_line = "BEST: {:05d}".format(self.best_score) if self.best_score > 0 else "5 GUNS - 4 SECTORS"
         self._show_overlay(
             "SKYLINE STRIKE",
             best_line,
@@ -616,6 +617,7 @@ class SkylineGame:
 
         # === STATE_PLAYING ===
         if engine_io.MENU.is_just_pressed:
+            self.player.stop_rumble()
             self.state = STATE_PAUSED
             self._refresh_pause_overlay()
             return
@@ -656,6 +658,24 @@ class SkylineGame:
             self.shake_mag = max(self.shake_mag, 1.6)
         self.fx.update(dt)
 
+        if self.player.hp <= 0:
+            self.player.stop_rumble()
+            self._save_best()
+            self.player.sync_visuals(visible=False)
+            self.fx.spawn_explosion(self.player.x, self.player.y, big=True)
+            self.state = STATE_GAMEOVER
+            self._update_world_render()
+            self._update_hud()
+            self._show_overlay(
+                "SHIELD DOWN",
+                "SCORE: {:05d}".format(self.score),
+                "BEST:  {:05d}".format(self.best_score),
+                "BOTS:  {}".format(self.kills),
+                "PRESS A TO RETRY",
+                COL_OV_WARN,
+            )
+            return
+
         for i, pk in enumerate(self.pickups):
             if pk["taken"]:
                 continue
@@ -686,21 +706,6 @@ class SkylineGame:
 
         self._update_world_render()
         self._update_hud()
-
-        if self.player.hp <= 0:
-            self._save_best()
-            self.player.sync_visuals(visible=False)
-            self.fx.spawn_explosion(self.player.x, self.player.y, big=True)
-            self.state = STATE_GAMEOVER
-            self._show_overlay(
-                "SHIELD DOWN",
-                "SCORE: {:05d}".format(self.score),
-                "BEST:  {:05d}".format(self.best_score),
-                "BOTS:  {}".format(self.kills),
-                "PRESS A TO RETRY",
-                COL_OV_WARN,
-            )
-            return
 
         bx, by = self.beacon_pos
         boss_locked = SECTORS[self.sector_idx]["has_boss"] and self.enemies.boss_alive()

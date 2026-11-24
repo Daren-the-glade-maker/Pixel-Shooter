@@ -179,7 +179,71 @@ rail_pierce = any(b.active and b.pierce for b in g.bullets.items)
     console.log(`  PASS: 600-frame rapid input stress test passed! mem_free ${startMem} -> ${endState.mem_free} (delta ${delta} B), 0 errors!`);
   }
 
-  console.log("\nALL 5 EXTENDED STRESS TESTS PASSED!");
+  // 6. Fatal hit + med pickup on same frame (Bug 1 regression)
+  {
+    console.log("[6/9] Testing fatal hit + med pickup on same frame...");
+    const emu = await bootGame();
+    await emu.runPython(`
+g.player.hp = 1
+g.player.invuln_timer = 0.0
+g.pickups = [{"x": g.player.x, "y": g.player.y, "kind": "med", "taken": False}]
+# Place an enemy bullet directly on the player
+g.bullets.spawn(g.player.x, g.player.y, 0.0, 0.0, 4, 4, g.player.current_weapon()["bullet_color"], 1, 1.0, from_player=False)
+`);
+    await stepFrames(emu, 1, 0);
+    const st = await getState(emu);
+    assert.equal(st.state, 4, `Expected STATE_GAMEOVER (4), got ${st.state}`);
+    assert.equal(st.hp, 0, `Expected HP 0, got ${st.hp}`);
+    console.log("  PASS: Fatal hit + med pickup on same frame -> STATE_GAMEOVER (hp=0)!");
+  }
+
+  // 7. Rumble stopped on pause & death (Bug 2 regression)
+  {
+    console.log("[7/9] Testing rumble stops on pause and fatal damage...");
+    const emu = await bootGame();
+    await emu.runPython(`
+g.player.invuln_timer = 0.0
+g.player.take_damage(1, g.fx, g.play_sfx)
+g.player._rumbling = True
+`);
+    await stepFrames(emu, 1, BUTTONS.MENU);
+    const rumblingAfterPause = await evalJson(emu, `g.player._rumbling`);
+    assert.equal(rumblingAfterPause, false, "Expected _rumbling=False after pause");
+    console.log("  PASS: Rumble stopped on pause (_rumbling=False)!");
+  }
+
+  // 8. BulletPool saturation policy (Bug 7)
+  {
+    console.log("[8/9] Testing BulletPool saturation policy...");
+    const emu = await bootGame();
+    // Pool saturation: 1 enemy bullet + 20 player bullets -> enemy bullet must survive
+    const enemyAlive = await evalJson(emu, `
+(lambda: (
+  g.bullets.clear(),
+  g.bullets.spawn(0.0, 0.0, 0.0, 0.0, 3, 3, g.player.current_weapon()["bullet_color"], 1, 5.0, from_player=False),
+  [g.bullets.spawn(float(i), 0.0, 10.0, 0.0, 3, 3, g.player.current_weapon()["bullet_color"], 1, 2.0, from_player=True) for i in range(20)],
+  any(b.active and not b.from_player for b in g.bullets.items)
+)[-1])()
+`);
+    assert.equal(enemyAlive, true, "Expected enemy bullet to survive player bullet pool saturation");
+    console.log("  PASS: BulletPool saturation preserved enemy bullet!");
+  }
+
+  // 9. Persistent high score across fresh SkylineGame instances (Bug 5)
+  {
+    console.log("[9/9] Testing persistent high score across fresh SkylineGame instances...");
+    const emu = await bootGame();
+    await emu.runPython(`
+g.score = 1234
+g._save_best()
+g2 = SkylineGame(headless_fast=True)
+`);
+    const best2 = await evalJson(emu, `g2.best_score`);
+    assert.equal(best2, 1234, `Expected fresh SkylineGame to load best_score=1234, got ${best2}`);
+    console.log(`  PASS: Fresh SkylineGame loaded persisted best_score=${best2}!`);
+  }
+
+  console.log("\nALL 9 EXTENDED STRESS TESTS PASSED!");
 }
 
 main().catch((err) => {
