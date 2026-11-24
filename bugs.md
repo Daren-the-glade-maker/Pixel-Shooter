@@ -1,6 +1,6 @@
 # Review findings
 
-The following improvements are ordered approximately by value. These findings are based on static inspection; they have not all been reproduced on hardware.
+The original improvements and the additional findings below are each ordered approximately by value. Findings are based on code inspection unless otherwise noted; they have not all been reproduced on hardware.
 
 ## 1. Fatal damage can be undone by a med pickup
 
@@ -49,3 +49,35 @@ The following improvements are ordered approximately by value. These findings ar
 - **Paths:** `README.md:46–62, 84–101`; `tests/run_emulator_tests.mjs:73–86`
 - **Problem:** The README omits the existing stress-test command and Node/network prerequisites. It describes a real `execfile("main.py")` boot, but the test reads and modifies the source before executing it. The distinction between simulator coverage and hardware validation is also important.
 - **Improvement:** Document both test commands and prerequisites, accurately describe the bootstrap test and hardware coverage, and add CI for both suites against a pinned emulator.
+
+# Additional findings
+
+## 9. Restarting from pause discards a potential high score
+
+- **Paths:** `game/game.py:371–377, 468–475, 581–593, 690–691, 724–725`
+- **Problem:** Pressing B on the pause screen calls `_start_new_game()`, which immediately resets the score. `_save_best()` is only called on game over or victory, so a run that has already beaten the high score is discarded if the player restarts from pause.
+- **Improvement:** Save the current best before discarding a run, and test that a pause restart preserves a new record across reloads.
+
+## 10. Falling while invulnerable bypasses the chasm penalty
+
+- **Paths:** `game/entities.py:326–330, 501–511`; `tests/run_stress_tests.mjs:101–117`
+- **Problem:** Chasm recovery calls `take_damage`, which ignores damage while the player is invulnerable, and then returns the player to safety anyway. A player who falls soon after being hit can recover without the documented one-HP penalty. The existing test explicitly clears invulnerability and does not cover this case.
+- **Improvement:** Decide whether falls should bypass combat invulnerability; if the intended penalty is unconditional, apply it separately and test falls both during and outside invulnerability. Confirmed with a local Python stub of the engine APIs; not verified on hardware.
+
+## 11. Weapon switching shortens the firing cooldown
+
+- **Paths:** `game/entities.py:315–319, 341–346`; `game/game.py:623–645`
+- **Problem:** Equipping any weapon clamps the current firing timer to 0.05 seconds. Alternating weapons while holding fire can bypass much of a slow weapon's cooldown, such as the railgun's 0.62 seconds, changing balance and increasing projectile load.
+- **Improvement:** Preserve a deliberate shared cooldown or track cooldowns per weapon, and test rapid weapon switching after firing. The timer reduction was confirmed with local engine API stubs.
+
+## 12. Restarting or changing sectors can leave a muzzle flash stuck on
+
+- **Paths:** `game/entities.py:295–313, 348–359, 402–405, 526–542`; `game/game.py:419–449, 468–475`
+- **Problem:** `Player.reset()` sets `muzzle_timer` to zero but does not hide `muzzle_node`. If a reset occurs while the flash is visible, the normal expiry branch will never run, leaving the flash visible at its old position until another shot updates it.
+- **Improvement:** Clear the muzzle node's opacity and position during reset, and test a reset immediately after firing. The retained opacity was confirmed with local engine API stubs.
+
+## 13. Camera shake strength never resets after a stronger effect
+
+- **Paths:** `game/game.py:87–90, 485–492, 569–570, 644–656`
+- **Problem:** New effects use `max(self.shake_mag, ...)`, but expiry only resets the timer, not the magnitude. After a strong effect, weaker effects reuse its strength for the rest of the game instance, including after restarting a run.
+- **Improvement:** Reset the magnitude when shake expires or start a new shake with the new effect's magnitude; test strong-then-weak effects and restart behavior.
