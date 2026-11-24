@@ -141,6 +141,16 @@ class SkylineGame:
             except Exception:
                 pass
 
+        self.title_bgm = None
+        try:
+            from engine_resources import RTTTLSoundResource
+            self.title_bgm = RTTTLSoundResource(
+                "Skyline:d=8,o=5,b=140:e,g,b,4e6,d6,b,4g,a,b,c6,4b,g,4e,p,e,g,b,4e6,f#6,e6,4d6,b,g,4a,4g"
+            )
+            engine_audio.play(self.title_bgm, 3, True)
+        except Exception:
+            self.title_bgm = None
+
         # Parallax city skyline layers (2 seamlessly tiled sprites per depth layer)
         self.far_nodes = [
             Sprite2DNode(position=Vector2(0, 14), texture=self.bg_far_tex, transparent_color=TRANSPARENT_KEY, layer=1),
@@ -571,9 +581,11 @@ class SkylineGame:
             self.shake_timer = max(0.0, self.shake_timer - dt)
 
         if self.state == STATE_TITLE:
-            self.cam_x = 18.0 + math.sin(self.time_acc * 0.45) * 42.0
-            self.cam_y = -6.0
-            self.ov_prompt.opacity = 1.0 if ((int(self.time_acc * 3.0) & 1) == 0) else 0.45
+            intro_t = min(1.0, self.time_acc / 1.2)
+            self.cam_x = -24.0 + intro_t * 42.0 + math.sin(self.time_acc * 0.45) * 42.0 * intro_t
+            self.cam_y = -28.0 + intro_t * 22.0
+            self.ov_title.opacity = intro_t
+            self.ov_prompt.opacity = (1.0 if ((int(self.time_acc * 3.0) & 1) == 0) else 0.45) if intro_t >= 0.9 else intro_t
             self._update_world_render()
             if engine_io.A.is_just_pressed or engine_io.B.is_just_pressed:
                 self._start_new_game()
