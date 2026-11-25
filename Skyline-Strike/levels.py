@@ -379,15 +379,20 @@ def generate_endless_chunk(chunk_idx, seed):
 
     x = 104
     for i in range(4):
-        w = rng.choice([96, 112, 128]) if i < 3 else 156
+        w = rng.choice([96, 128, 160, 192, 224, 256]) if i < 3 else rng.choice([156, 192, 224])
         y = rng.choice([24, 28, 32, 36])
         buildings.append((x, w, y, style))
-        if rng.random() < 0.7:
+        if rng.random() < 0.75:
             props.append((x + w // 2, y, rng.choice(["ac", "antenna", "watertower"])))
         if i < 3:
-            kind = rng.choice(["scout", "drone", "hopper", "turret"])
-            ey = y - 13 if kind != "drone" else y - 34
-            enemies.append((kind, x + w // 2, ey, x + 10, x + w - 10))
+            n_enemies = 1 if w <= 128 else (2 if w <= 192 else 3)
+            for e_i in range(n_enemies):
+                if len(enemies) >= 8:
+                    break
+                kind = rng.choice(["scout", "drone", "hopper", "turret"])
+                ex = x + 24 + int((w - 48) * (e_i + 0.5) / n_enemies)
+                ey = y - 13 if kind != "drone" else y - 34
+                enemies.append((kind, ex, ey, x + 10, x + w - 10))
             if rng.random() < 0.55:
                 pickups.append((rng.choice(["med", "star"]), x + w // 2, y - 20))
         else:

@@ -554,6 +554,12 @@ class SkylineGame:
         self.score = 0
         self.kills = 0
         self.chunk_idx = 0
+        if self.is_endless:
+            try:
+                import time
+                self.endless_seed = (time.ticks_us() ^ (self.frame_count * 7919)) & 2147483647
+            except Exception:
+                self.endless_seed = (self.endless_seed + 104729) & 2147483647
         self.player.equip(0)
         self._load_sector(0, reset_hp=True)
         self._set_hud_visible(True)
