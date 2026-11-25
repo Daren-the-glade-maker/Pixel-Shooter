@@ -381,6 +381,37 @@ g.player.x = g.beacon_pos[0]
 g.player.y = g.beacon_pos[1] - 8.0
 `);
     await tick(3, 0);
+    // Sector 3 clears into Sector 4 (Orbital Relay)
+    await tick(2, BUTTONS.A);
+    await tick(3, 0);
+    await emu.runPython(`
+pts_s4 = g.enemies.boss_slot.take_damage(180, g.fx, g.play_sfx)
+assert pts_s4 == 1000 and not g.enemies.boss_alive()
+g.score += pts_s4
+g.kills += 1
+g.player.x = g.beacon_pos[0]
+g.player.y = g.beacon_pos[1] - 8.0
+`);
+    await tick(3, 0);
+    // Sector 4 clears into Sector 5 (Canopy Edge) -> Sector 6 (Elder Grove)
+    await tick(2, BUTTONS.A);
+    await tick(3, 0);
+    await emu.runPython(`
+g.player.x = g.beacon_pos[0]
+g.player.y = g.beacon_pos[1] - 8.0
+`);
+    await tick(3, 0);
+    await tick(2, BUTTONS.A);
+    await tick(3, 0);
+    await emu.runPython(`
+pts_s6 = g.enemies.boss_slot.take_damage(180, g.fx, g.play_sfx)
+assert pts_s6 == 1000 and not g.enemies.boss_alive()
+g.score += pts_s6
+g.kills += 1
+g.player.x = g.beacon_pos[0]
+g.player.y = g.beacon_pos[1] - 8.0
+`);
+    await tick(3, 0);
     const victorySt = await getState();
     assert.equal(victorySt.state, 5, `Expected STATE_VICTORY (5), got ${victorySt.state}`);
     assert.equal(countBloodRedPixels(emu.getFrameCopy()), 0, "Victory screen must have 0 blood-red pixels");

@@ -1092,6 +1092,46 @@ def generate_sfx():
     write_wav_8bit(os.path.join(ASSETS_DIR, "sfx_pickup.wav"), p1 + p2)
 
 
+def generate_forest_and_p2_assets():
+    # Mossy treetop canopy platform (32x64)
+    c = Canvas(32, 64, None)
+    # Tree trunk / bark base
+    c.rect(0, 6, 32, 58, (64, 42, 28))
+    for y in range(8, 64, 6):
+        c.vline(4 + (y % 5), y, 4, (82, 54, 36))
+        c.vline(20 - (y % 4), y, 4, (48, 30, 20))
+    # Lush mossy canopy top
+    c.rect(0, 0, 32, 8, (44, 138, 56))
+    c.hline(0, 0, 32, (112, 214, 92))
+    c.hline(0, 1, 32, (78, 178, 74))
+    c.hline(0, 7, 32, (28, 88, 38))
+    write_bmp_8bit(os.path.join(ASSETS_DIR, "roof_canopy.bmp"), 32, 64, c.px)
+
+    # Gold Coin pickup (10x10)
+    c = Canvas(10, 10, None)
+    c.rect(2, 1, 6, 8, (255, 204, 44))
+    c.rect(1, 2, 8, 6, (255, 204, 44))
+    c.rect(3, 2, 4, 6, (255, 238, 120))
+    c.vline(4, 3, 4, (210, 140, 20))
+    write_bmp_8bit(os.path.join(ASSETS_DIR, "pickup_coin.bmp"), 10, 10, c.px)
+
+    # Player 2 Red sprite (copy player.bmp and swap blue suit pixels to red)
+    p1_path = os.path.join(ASSETS_DIR, "player.bmp")
+    p2_path = os.path.join(ASSETS_DIR, "player_red.bmp")
+    with open(p1_path, "rb") as f:
+        data = bytearray(f.read())
+    # 8-bit BMP palette starts at byte 54 (256 * 4 bytes: B, G, R, 0)
+    for i in range(256):
+        off = 54 + i * 4
+        b, g, r = data[off], data[off + 1], data[off + 2]
+        # Swap blue-dominant suit colors to red-dominant
+        if b > r + 25 and b > 90:
+            data[off] = r
+            data[off + 2] = b
+    with open(p2_path, "wb") as f:
+        f.write(data)
+
+
 def main():
     # Sector 1: Dusk City Skyline (deep indigo -> twilight violet -> warm dusk horizon)
     generate_sky(
@@ -1120,6 +1160,14 @@ def main():
         halo_color=(255, 164, 110),
         seed=33,
     )
+    generate_sky(
+        "sky_forest.bmp",
+        [(0.0, (14, 42, 34)), (0.45, (28, 78, 52)), (0.78, (54, 118, 66)), (1.0, (110, 168, 86))],
+        moon_pos=(28, 22),
+        moon_color=(230, 255, 210),
+        halo_color=(140, 220, 150),
+        seed=44,
+    )
 
     generate_parallax_far()
     generate_parallax_mid()
@@ -1129,6 +1177,7 @@ def main():
     generate_guns()
     generate_enemies()
     generate_pickups()
+    generate_forest_and_p2_assets()
     generate_launcher_icon()
     generate_sfx()
 
