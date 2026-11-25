@@ -526,6 +526,7 @@ class SkylineGame:
         self._hide_overlay()
         self.is_endless = (self.pick_mode == 1)
         self.is_2p = (self.pick_players == 1)
+        self._link_announced = False
         if self.is_2p:
             self.link.start()
         else:
@@ -789,6 +790,12 @@ class SkylineGame:
                 self.score,
             )
             if self.link.remote_seen:
+                if not self._link_announced:
+                    self._link_announced = True
+                    if not self.link.is_host():
+                        self.player.sprite.texture = self.player_red_tex
+                        self.remote_sprite.texture = self.player_tex
+                    self._show_toast("2P LINKED!", COL_PIP_OK, 1.2)
                 set_pos(self.remote_sprite, self.link.remote_x, self.link.remote_y)
                 self.remote_sprite.scale.x = 1.0 if self.link.remote_facing >= 0 else -1.0
                 self.remote_sprite.opacity = 1.0
