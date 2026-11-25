@@ -102,8 +102,12 @@ class SkylineGame:
             TextureResource("assets/roof_glass.bmp", True),
             TextureResource("assets/roof_steel.bmp", True),
             TextureResource("assets/roof_canopy.bmp", True),
+            TextureResource("assets/roof_lava.bmp", True),
+            TextureResource("assets/roof_ice.bmp", True),
         ]
         self.forest_sky_tex = TextureResource("assets/sky_forest.bmp", False)
+        self.lava_sky_tex = TextureResource("assets/sky_lava.bmp", False)
+        self.ice_sky_tex = TextureResource("assets/sky_ice.bmp", False)
         self.player_red_tex = TextureResource("assets/player_red.bmp", True)
         self.link = LinkManager()
         self.pick_mode = 0      # 0 = Adventure, 1 = Endless
@@ -465,7 +469,15 @@ class SkylineGame:
             self._cached_sec = SECTORS[idx]
         sec = self._cached_sec
         if self.is_endless:
-            sky_tex = self.forest_sky_tex if (idx % 2 == 1) else self.sky_textures[idx % len(self.sky_textures)]
+            theme = idx % 4
+            if theme == 1:
+                sky_tex = self.forest_sky_tex
+            elif theme == 2:
+                sky_tex = self.lava_sky_tex
+            elif theme == 3:
+                sky_tex = self.ice_sky_tex
+            else:
+                sky_tex = self.sky_textures[idx % len(self.sky_textures)]
             engine_draw.set_background(sky_tex)
         else:
             engine_draw.set_background(self.sky_textures[idx])
