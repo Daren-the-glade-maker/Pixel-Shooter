@@ -478,6 +478,10 @@ class SkylineGame:
         self.fx.clear()
         self.bullets.clear()
         self.enemies.load_sector(sec["enemies"])
+        if self.is_endless and sec.get("has_boss") and self.enemies.boss_slot is not None:
+            bhp = sec.get("boss_hp", 180)
+            self.enemies.boss_slot.hp = bhp
+            self.enemies.boss_slot.max_hp = bhp
 
         # Setup pickups
         self.pickups = []
@@ -801,6 +805,9 @@ class SkylineGame:
             self.kills += kills
             if self.is_endless:
                 self.coins += kills * 2
+                if gained >= 1000:
+                    self.coins += 20
+                    self._show_toast("BOSS +20 COINS!", COL_SPARK_GOLD, 1.2)
             self.shake_timer = 0.14
             self.shake_mag = max(self.shake_mag, 1.6)
         self.fx.update(dt)

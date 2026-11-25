@@ -245,11 +245,26 @@ SECTORS = [
 ]
 
 
+ENDLESS_BOSSES = [
+    ("IRON HAWK", 150),
+    ("NEON VIPER", 165),
+    ("APEX CORE", 180),
+    ("STORM TITAN", 195),
+    ("CYBER WYRM", 210),
+    ("VOID REAPER", 220),
+    ("SOLAR FLARE", 230),
+    ("FROST BITE", 240),
+    ("PLASMA KING", 255),
+    ("OMEGA DRONE", 270),
+]
+
+
 def generate_endless_chunk(chunk_idx, seed):
     import random
     random.seed(seed)
     rng = random
-    has_boss = (chunk_idx > 0) and ((chunk_idx % 3) == 2)
+    has_boss = (rng.random() < 0.45) or ((chunk_idx > 0) and ((chunk_idx % 3) == 2))
+    boss_name, boss_hp = rng.choice(ENDLESS_BOSSES) if has_boss else ("", 0)
     is_forest = (chunk_idx % 2) == 1
     sky = "assets/sky_forest.bmp" if is_forest else ("assets/sky_neon.bmp" if chunk_idx % 4 == 0 else "assets/sky_spire.bmp")
     style = 3 if is_forest else (chunk_idx % 3)
