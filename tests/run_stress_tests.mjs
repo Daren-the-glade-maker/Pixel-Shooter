@@ -272,7 +272,8 @@ g = SkylineGame(headless_fast=True)
     assert.equal(picks.players, 1, "Expected 2P Link selected");
     await stepFrames(emu, 1, BUTTONS.A);
     await stepFrames(emu, 2, 0);
-    const started = await evalJson(emu, `{"is_endless": g.is_endless, "is_2p": g.is_2p, "gaps": [g.buildings[i+1][0] - (g.buildings[i][0] + g.buildings[i][1]) for i in range(len(g.buildings)-1)], "ys": [b[2] for b in g.buildings]}`);
+    const started = await evalJson(emu, `{"state": g.state, "is_endless": g.is_endless, "is_2p": g.is_2p, "gaps": [g.buildings[i+1][0] - (g.buildings[i][0] + g.buildings[i][1]) for i in range(len(g.buildings)-1)], "ys": [b[2] for b in g.buildings]}`);
+    assert.equal(started.state, 7, "Expected STATE_LINK_WAIT (7) when 2P selected without cable");
     assert.equal(started.is_endless, true, "Expected is_endless=True");
     assert.equal(started.is_2p, true, "Expected is_2p=True");
     assert.ok(started.gaps.every((gap) => gap >= 16 && gap <= 36), `Endless gaps must be jumpable (16..36px), got ${JSON.stringify(started.gaps)}`);

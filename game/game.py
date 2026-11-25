@@ -34,6 +34,7 @@ STATE_SECTOR_CLEAR = 3
 STATE_GAMEOVER = 4
 STATE_VICTORY = 5
 STATE_UPGRADE = 6
+STATE_LINK_WAIT = 7
 
 PROP_HALF_H = {
     "ac": 5.0,
@@ -537,10 +538,22 @@ class SkylineGame:
         self.chunk_idx = 0
         self.player.equip(0)
         self._load_sector(0, reset_hp=True)
-        self._hide_overlay()
         self._set_hud_visible(True)
-        self.state = STATE_PLAYING
-        self._show_toast("S1: " + SECTORS[0]["name"], COL_SPARK_CYAN, 1.4)
+        if self.is_2p and not self.link.is_connected():
+            self.state = STATE_LINK_WAIT
+            self._show_overlay(
+                "2P LINK CABLE",
+                "CONNECT USB-C",
+                "TO OTHER THUMBY",
+                "WAITING...",
+                "B: PLAY 1P SOLO",
+                COL_OV_TITLE,
+            )
+        else:
+            self._hide_overlay()
+            self.state = STATE_PLAYING
+            tag_name = "ENDLESS #1" if self.is_endless else ("S1: " + SECTORS[0]["name"])
+            self._show_toast(tag_name, COL_SPARK_CYAN, 1.4)
         self.play_sfx("swap", 3)
 
     def _cycle_weapon(self, delta):
@@ -654,6 +667,20 @@ class SkylineGame:
                 self._refresh_title_pickers()
             elif engine_io.A.is_just_pressed or engine_io.B.is_just_pressed:
                 self._start_new_game()
+            return
+
+        if self.state == STATE_LINK_WAIT:
+            self._update_world_render()
+            if self.link.is_connected():
+                self._hide_overlay()
+                self.state = STATE_PLAYING
+                self._show_toast("2P LINKED!", COL_PIP_OK, 1.4)
+            elif engine_io.B.is_just_pressed or engine_io.MENU.is_just_pressed:
+                self.is_2p = False
+                self.link.stop()
+                self._hide_overlay()
+                self.state = STATE_PLAYING
+                self._show_toast("1P SOLO", COL_SPARK_CYAN, 1.2)
             return
 
         if self.state == STATE_UPGRADE:
