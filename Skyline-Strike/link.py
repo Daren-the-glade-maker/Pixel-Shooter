@@ -73,7 +73,7 @@ class LinkManager:
     def sync(self, px, py, facing, weapon_idx, hp, firing, sector_idx, score):
         if not self.enabled:
             return
-        pkt = struct.pack(
+        pkt = bytearray(struct.pack(
             PKT_FMT,
             b"SK",
             int(px * 10.0),
@@ -84,7 +84,7 @@ class LinkManager:
             1 if firing else 0,
             sector_idx & 0xFF,
             max(0, min(65535, int(score))),
-        )
+        ))
         link = self.mock if self.mock is not None else engine_link
         if link is None:
             return

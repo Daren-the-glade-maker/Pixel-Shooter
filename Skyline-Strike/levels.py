@@ -294,7 +294,7 @@ def generate_endless_chunk(chunk_idx, seed):
                 enemies.append(("scout", x + w // 2, y - 13, x + 12, x + w - 12))
         x += w + rng.choice([24, 28, 32])
 
-    last_x, last_y, last_w, _ = buildings[-1]
+    last_x, last_w, last_y, _ = buildings[-1]
     beacon_x = last_x + last_w - 18
     return {
         "tag": "C{}".format(chunk_idx + 1),

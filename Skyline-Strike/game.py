@@ -454,14 +454,16 @@ class SkylineGame:
             self.boss_label.opacity = 0.0
 
     def _current_sec(self):
-        if self.is_endless:
-            return generate_endless_chunk(self.chunk_idx, self.endless_seed + self.chunk_idx * 7919)
-        return SECTORS[self.sector_idx]
+        return self._cached_sec
 
     def _load_sector(self, idx, reset_hp=False):
         self.sector_idx = idx
         self.chunk_idx = idx
-        sec = self._current_sec()
+        if self.is_endless:
+            self._cached_sec = generate_endless_chunk(self.chunk_idx, self.endless_seed + self.chunk_idx * 7919)
+        else:
+            self._cached_sec = SECTORS[idx]
+        sec = self._cached_sec
         if self.is_endless:
             sky_tex = self.forest_sky_tex if (idx % 2 == 1) else self.sky_textures[idx % len(self.sky_textures)]
             engine_draw.set_background(sky_tex)
@@ -629,7 +631,7 @@ class SkylineGame:
         bx, by = self.beacon_pos
         if view_l <= bx <= view_r:
             set_pos(self.beacon_node, float(bx), float(by) - PROP_HALF_H["beacon"])
-            boss_locked = SECTORS[self.sector_idx]["has_boss"] and self.enemies.boss_alive()
+            boss_locked = self._current_sec()["has_boss"] and self.enemies.boss_alive()
             if boss_locked:
                 self.beacon_node.opacity = 0.25
             else:
