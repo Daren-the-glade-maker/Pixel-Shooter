@@ -10,10 +10,20 @@ PKT_FMT = "<2shhbBBBBH"
 PKT_SIZE = struct.calcsize(PKT_FMT)
 
 
+def _on_link_connected():
+    if engine_link is not None:
+        try:
+            engine_link.clear_send()
+            engine_link.clear_read()
+        except Exception:
+            pass
+
+
 class LinkManager:
     def __init__(self):
         self.enabled = False
         self.mock = None
+        self._rx_buf = bytearray(PKT_SIZE)
         self.remote_x = 0.0
         self.remote_y = 24.0
         self.remote_facing = 1
@@ -31,6 +41,7 @@ class LinkManager:
             return
         if engine_link is not None:
             try:
+                engine_link.set_connected_cb(_on_link_connected)
                 if not engine_link.is_started():
                     engine_link.start()
             except Exception as e:
@@ -92,7 +103,11 @@ class LinkManager:
             if link.connected():
                 link.send(pkt)
                 while link.available() >= PKT_SIZE:
-                    raw = link.read(PKT_SIZE)
+                    if self.mock is not None:
+                        raw = link.read(PKT_SIZE)
+                    else:
+                        link.read_into(self._rx_buf, PKT_SIZE)
+                        raw = self._rx_buf
                     if raw and len(raw) == PKT_SIZE and raw[0:2] == b"SK":
                         _, rx, ry, rf, rw, rhp, rfire, rsec, rsc = struct.unpack(PKT_FMT, raw)
                         self.remote_x = rx * 0.1
