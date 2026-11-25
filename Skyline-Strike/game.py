@@ -675,7 +675,17 @@ class SkylineGame:
 
         if self.state == STATE_LINK_WAIT:
             self._update_world_render()
-            if self.link.is_connected():
+            self.link.sync(
+                self.player.x,
+                self.player.y,
+                self.player.facing,
+                self.player.weapon_idx,
+                self.player.hp,
+                False,
+                self.sector_idx,
+                self.score,
+            )
+            if self.link.is_connected() or self.link.remote_seen:
                 self._hide_overlay()
                 self.state = STATE_PLAYING
                 self._show_toast("2P LINKED!", COL_PIP_OK, 1.4)
