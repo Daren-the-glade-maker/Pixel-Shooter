@@ -15,7 +15,7 @@ import random
 import struct
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-GAME_DIR = os.path.join(ROOT_DIR, "game")
+GAME_DIR = os.path.join(ROOT_DIR, "Skyline-Strike")
 ASSETS_DIR = os.path.join(GAME_DIR, "assets")
 os.makedirs(ASSETS_DIR, exist_ok=True)
 
