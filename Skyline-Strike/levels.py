@@ -242,6 +242,99 @@ SECTORS = [
         "beacon": (644, 30),
         "has_boss": True,
     },
+    {
+        "tag": "S7",
+        "name": "MAGMA FOUNDRY",
+        "sky": "assets/sky_lava.bmp",
+        "spawn": (4, 24),
+        "buildings": [
+            (-32, 112, 34, 4),
+            (108, 100, 26, 4),
+            (236, 116, 32, 4),
+            (378, 100, 24, 4),
+            (504, 148, 30, 4),
+        ],
+        "props": [(32, 34, "ac"), (152, 26, "antenna"), (284, 32, "ac"), (422, 24, "watertower")],
+        "enemies": [
+            ("scout", 140, 13, 116, 194),
+            ("drone", 204, -10, 136, 232),
+            ("hopper", 280, 19, 246, 334),
+            ("turret", 418, 19, 418, 418),
+            ("scout", 548, 17, 514, 610),
+        ],
+        "pickups": [("med", 152, 6), ("star", 284, 12), ("med", 548, 12)],
+        "beacon": (632, 30),
+        "has_boss": False,
+    },
+    {
+        "tag": "S8",
+        "name": "OBSIDIAN CORE",
+        "sky": "assets/sky_lava.bmp",
+        "spawn": (4, 24),
+        "buildings": [
+            (-32, 112, 34, 4),
+            (106, 96, 24, 4),
+            (228, 116, 32, 4),
+            (372, 104, 22, 4),
+            (500, 160, 30, 4),
+        ],
+        "props": [(40, 34, "ac"), (148, 24, "ac"), (276, 32, "antenna"), (414, 22, "ac")],
+        "enemies": [
+            ("hopper", 142, 11, 114, 186),
+            ("drone", 202, -12, 130, 226),
+            ("turret", 294, 27, 294, 294),
+            ("boss", 610, -4, 518, 646),
+        ],
+        "pickups": [("star", 148, 4), ("med", 276, 12), ("star", 414, 2)],
+        "beacon": (644, 30),
+        "has_boss": True,
+    },
+    {
+        "tag": "S9",
+        "name": "FROST PEAKS",
+        "sky": "assets/sky_ice.bmp",
+        "spawn": (4, 24),
+        "buildings": [
+            (-32, 112, 34, 5),
+            (108, 104, 26, 5),
+            (238, 116, 30, 5),
+            (380, 100, 22, 5),
+            (504, 144, 28, 5),
+        ],
+        "props": [(32, 34, "ac"), (152, 26, "watertower"), (284, 30, "ac"), (422, 22, "antenna")],
+        "enemies": [
+            ("scout", 140, 13, 116, 194),
+            ("drone", 204, -10, 136, 232),
+            ("hopper", 280, 17, 246, 334),
+            ("turret", 418, 17, 418, 418),
+        ],
+        "pickups": [("med", 152, 6), ("star", 284, 10), ("med", 548, 10)],
+        "beacon": (628, 28),
+        "has_boss": False,
+    },
+    {
+        "tag": "S10",
+        "name": "CRYO CITADEL",
+        "sky": "assets/sky_ice.bmp",
+        "spawn": (4, 24),
+        "buildings": [
+            (-32, 112, 34, 5),
+            (106, 96, 24, 5),
+            (228, 116, 32, 5),
+            (372, 104, 22, 5),
+            (500, 160, 30, 5),
+        ],
+        "props": [(40, 34, "ac"), (148, 24, "ac"), (276, 32, "watertower"), (414, 22, "ac")],
+        "enemies": [
+            ("hopper", 142, 11, 114, 186),
+            ("drone", 202, -12, 130, 226),
+            ("turret", 294, 27, 294, 294),
+            ("boss", 610, -4, 518, 646),
+        ],
+        "pickups": [("star", 148, 4), ("med", 276, 12), ("star", 414, 2)],
+        "beacon": (644, 30),
+        "has_boss": True,
+    },
 ]
 
 
@@ -265,9 +358,19 @@ def generate_endless_chunk(chunk_idx, seed):
     rng = random
     has_boss = (rng.random() < 0.45) or ((chunk_idx > 0) and ((chunk_idx % 3) == 2))
     boss_name, boss_hp = rng.choice(ENDLESS_BOSSES) if has_boss else ("", 0)
-    is_forest = (chunk_idx % 2) == 1
-    sky = "assets/sky_forest.bmp" if is_forest else ("assets/sky_neon.bmp" if chunk_idx % 4 == 0 else "assets/sky_spire.bmp")
-    style = 3 if is_forest else (chunk_idx % 3)
+    theme = chunk_idx % 4
+    if theme == 1:
+        sky = "assets/sky_forest.bmp"
+        style = 3
+    elif theme == 2:
+        sky = "assets/sky_lava.bmp"
+        style = 4
+    elif theme == 3:
+        sky = "assets/sky_ice.bmp"
+        style = 5
+    else:
+        sky = "assets/sky_neon.bmp" if chunk_idx % 8 == 0 else "assets/sky_spire.bmp"
+        style = chunk_idx % 3
 
     buildings = [(-32, 112, 34, style)]
     props = [(28, 34, "ac")]

@@ -1107,6 +1107,28 @@ def generate_forest_and_p2_assets():
     c.hline(0, 7, 32, (28, 88, 38))
     write_bmp_8bit(os.path.join(ASSETS_DIR, "roof_canopy.bmp"), 32, 64, c.px)
 
+    # Volcanic Obsidian & Magma platform (32x64)
+    c = Canvas(32, 64, None)
+    c.rect(0, 6, 32, 58, (32, 24, 28))
+    for y in range(10, 64, 8):
+        c.hline(2, y, 10, (180, 56, 20))
+        c.hline(18, y + 3, 12, (210, 78, 24))
+    c.rect(0, 0, 32, 6, (58, 42, 46))
+    c.hline(0, 0, 32, (255, 132, 44))
+    c.hline(0, 1, 32, (210, 72, 24))
+    write_bmp_8bit(os.path.join(ASSETS_DIR, "roof_lava.bmp"), 32, 64, c.px)
+
+    # Cryo Glacier Ice platform (32x64)
+    c = Canvas(32, 64, None)
+    c.rect(0, 6, 32, 58, (36, 78, 122))
+    for y in range(8, 64, 7):
+        c.vline(6 + (y % 6), y, 5, (72, 134, 184))
+        c.vline(22 - (y % 5), y, 5, (28, 58, 96))
+    c.rect(0, 0, 32, 7, (118, 202, 240))
+    c.hline(0, 0, 32, (220, 248, 255))
+    c.hline(0, 1, 32, (164, 228, 252))
+    write_bmp_8bit(os.path.join(ASSETS_DIR, "roof_ice.bmp"), 32, 64, c.px)
+
     # Gold Coin pickup (10x10)
     c = Canvas(10, 10, None)
     c.rect(2, 1, 6, 8, (255, 204, 44))
@@ -1167,6 +1189,22 @@ def main():
         moon_color=(230, 255, 210),
         halo_color=(140, 220, 150),
         seed=44,
+    )
+    generate_sky(
+        "sky_lava.bmp",
+        [(0.0, (24, 8, 12)), (0.45, (68, 18, 16)), (0.78, (142, 42, 18)), (1.0, (224, 108, 28))],
+        moon_pos=(96, 20),
+        moon_color=(255, 210, 120),
+        halo_color=(255, 110, 40),
+        seed=55,
+    )
+    generate_sky(
+        "sky_ice.bmp",
+        [(0.0, (10, 26, 52)), (0.45, (24, 64, 108)), (0.78, (64, 132, 178)), (1.0, (160, 220, 245))],
+        moon_pos=(36, 24),
+        moon_color=(230, 248, 255),
+        halo_color=(120, 200, 255),
+        seed=66,
     )
 
     generate_parallax_far()

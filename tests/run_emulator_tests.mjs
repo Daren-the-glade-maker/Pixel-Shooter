@@ -411,6 +411,22 @@ g.kills += 1
 g.player.x = g.beacon_pos[0]
 g.player.y = g.beacon_pos[1] - 8.0
 `);
+    // Advance through S6 -> S7 -> S8 -> S9 -> S10 -> Victory
+    for (const hasBoss of [false, true, false, true]) {
+      await tick(3, 0);
+      await tick(2, BUTTONS.A);
+      await tick(3, 0);
+      await emu.runPython(hasBoss ? `
+pts_b = g.enemies.boss_slot.take_damage(180, g.fx, g.play_sfx)
+g.score += pts_b
+g.kills += 1
+g.player.x = g.beacon_pos[0]
+g.player.y = g.beacon_pos[1] - 8.0
+` : `
+g.player.x = g.beacon_pos[0]
+g.player.y = g.beacon_pos[1] - 8.0
+`);
+    }
     await tick(3, 0);
     const victorySt = await getState();
     assert.equal(victorySt.state, 5, `Expected STATE_VICTORY (5), got ${victorySt.state}`);
