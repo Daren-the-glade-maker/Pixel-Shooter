@@ -207,10 +207,19 @@ class BulletPool:
             if not b.active:
                 b.spawn(x, y, vx, vy, w, h, color, damage, life, from_player, pierce, spark_col)
                 return b
-        b = self.items[self.cursor]
-        self.cursor = (self.cursor + 1) % len(self.items)
-        b.spawn(x, y, vx, vy, w, h, color, damage, life, from_player, pierce, spark_col)
-        return b
+        # Pool saturated: prefer replacing oldest (lowest remaining life) of same ownership
+        victim = None
+        for b in self.items:
+            if b.from_player == from_player:
+                if victim is None or b.life < victim.life:
+                    victim = b
+        if victim is None:
+            victim = self.items[0]
+            for b in self.items:
+                if b.life < victim.life:
+                    victim = b
+        victim.spawn(x, y, vx, vy, w, h, color, damage, life, from_player, pierce, spark_col)
+        return victim
 
     def update(self, dt, buildings, fx):
         for b in self.items:
@@ -338,11 +347,19 @@ class Player:
             pass
         return True
 
-    def try_fire(self, bullets, fx, play_sfx):
+    def stop_rumble(self):
+        if self._rumbling:
+            self._rumbling = False
+            try:
+                engine_io.rumble(0.0)
+            except Exception:
+                pass
+
+    def try_fire(self, bullets, fx, play_sfx, rate_mult=1.0, dmg_bonus=0, bh_bonus=0):
         if self.fire_timer > 0.0:
             return 0.0
         w = self.current_weapon()
-        cd = w["cooldown"] * (0.65 if self.overcharge_timer > 0.0 else 1.0)
+        cd = w["cooldown"] * rate_mult * (0.65 if self.overcharge_timer > 0.0 else 1.0)
         self.fire_timer = cd
         self.recoil_offset = w["recoil"]
         self.muzzle_timer = 0.055
@@ -371,9 +388,9 @@ class Player:
             vx = self.facing * w["speed"]
             bullets.spawn(
                 mx, my, vx, vy,
-                w["bw"], w["bh"],
+                w["bw"], w["bh"] + bh_bonus,
                 w["bullet_color"],
-                w["damage"],
+                w["damage"] + dmg_bonus,
                 w["life"],
                 True,
                 w["pierce"],
@@ -701,15 +718,24 @@ class EnemySlot:
         if self.kind == "scout":
             self.sprite.frame_current_x = int(self.anim_timer * 6.0) & 1
             self.fire_timer -= dt
-            if in_range and self.fire_timer <= 0.0:
+            if in_range:
                 self.facing = -1 if dx < 0.0 else 1
-                bullets.spawn(
-                    self.x + self.facing * 7.0, self.y - 1.0,
-                    self.facing * 92.0, 0.0,
-                    4, 3, COL_ENEMY_BOLT, 1, 1.2,
-                    False, False, COL_SPARK_GOLD,
-                )
-                self.fire_timer = 1.65
+                if self.fire_timer <= 0.0:
+                    bullets.spawn(
+                        self.x + self.facing * 7.0, self.y - 1.0,
+                        self.facing * 92.0, 0.0,
+                        4, 3, COL_ENEMY_BOLT, 1, 1.2,
+                        False, False, COL_SPARK_GOLD,
+                    )
+                    self.fire_timer = 1.45
+                elif abs(dx) > 42.0:
+                    self.x += self.facing * 26.0 * dt
+                elif abs(dx) < 22.0:
+                    self.x -= self.facing * 20.0 * dt
+                if self.x < self.min_x:
+                    self.x = self.min_x
+                elif self.x > self.max_x:
+                    self.x = self.max_x
             else:
                 self.x += self.vx * dt
                 if self.x <= self.min_x:
@@ -795,9 +821,11 @@ class EnemySlot:
                     fx.spawn_dust(self.x, self.y + 6.5)
 
         elif self.kind == "boss":
+            phase2 = self.hp <= (self.max_hp >> 1)
             mid_x = (self.min_x + self.max_x) * 0.5
             span_x = (self.max_x - self.min_x) * 0.45
-            self.x = mid_x + math.sin(self.ai_timer * 1.15) * span_x
+            spd = 1.6 if phase2 else 1.15
+            self.x = mid_x + math.sin(self.ai_timer * spd) * span_x
             self.y = self.base_y + math.sin(self.ai_timer * 2.3) * 8.0
             self.facing = -1 if dx < 0.0 else 1
             if abs(dx) < 130.0:
@@ -814,13 +842,13 @@ class EnemySlot:
                                 5, 5, COL_BOSS_BOLT, 1, 1.7,
                                 False, False, COL_SPARK_PURPLE,
                             )
-                        self.fire_timer = 1.45
+                        self.fire_timer = 1.05 if phase2 else 1.45
                         self.sprite.frame_current_x = 0
                 else:
                     self.sprite.frame_current_x = int(self.anim_timer * 5.0) & 1
                     self.fire_timer -= dt
                     if self.fire_timer <= 0.0:
-                        self.charge_timer = 0.55
+                        self.charge_timer = 0.38 if phase2 else 0.55
 
         self._sync()
 
