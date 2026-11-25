@@ -263,7 +263,7 @@ def generate_endless_chunk(chunk_idx, seed):
     for i in range(4):
         w = rng.choice([96, 112, 128]) if i < 3 else 156
         y = rng.choice([24, 28, 32, 36])
-        buildings.append((x, y, w, style))
+        buildings.append((x, w, y, style))
         if rng.random() < 0.7:
             props.append((x + w // 2, y, rng.choice(["ac", "antenna", "watertower"])))
         if i < 3:
