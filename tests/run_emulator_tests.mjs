@@ -11,7 +11,7 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const GAME_DIR = path.join(ROOT, "game");
+const GAME_DIR = path.join(ROOT, "Skyline-Strike");
 const CACHE_DIR = path.join(ROOT, ".cache", "emulator");
 const SHOTS_DIR = path.join(ROOT, ".cache", "screenshots");
 
