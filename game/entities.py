@@ -355,11 +355,11 @@ class Player:
             except Exception:
                 pass
 
-    def try_fire(self, bullets, fx, play_sfx):
+    def try_fire(self, bullets, fx, play_sfx, rate_mult=1.0, dmg_bonus=0, bh_bonus=0):
         if self.fire_timer > 0.0:
             return 0.0
         w = self.current_weapon()
-        cd = w["cooldown"] * (0.65 if self.overcharge_timer > 0.0 else 1.0)
+        cd = w["cooldown"] * rate_mult * (0.65 if self.overcharge_timer > 0.0 else 1.0)
         self.fire_timer = cd
         self.recoil_offset = w["recoil"]
         self.muzzle_timer = 0.055
@@ -388,9 +388,9 @@ class Player:
             vx = self.facing * w["speed"]
             bullets.spawn(
                 mx, my, vx, vy,
-                w["bw"], w["bh"],
+                w["bw"], w["bh"] + bh_bonus,
                 w["bullet_color"],
-                w["damage"],
+                w["damage"] + dmg_bonus,
                 w["life"],
                 True,
                 w["pierce"],

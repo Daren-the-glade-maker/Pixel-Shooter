@@ -23,7 +23,8 @@ from entities import (
     TRANSPARENT_KEY,
     set_pos,
 )
-from levels import SECTORS
+from levels import SECTORS, generate_endless_chunk
+from link import LinkManager
 from weapons import WEAPONS
 
 STATE_TITLE = 0
@@ -32,6 +33,7 @@ STATE_PAUSED = 2
 STATE_SECTOR_CLEAR = 3
 STATE_GAMEOVER = 4
 STATE_VICTORY = 5
+STATE_UPGRADE = 6
 
 PROP_HALF_H = {
     "ac": 5.0,
@@ -98,7 +100,30 @@ class SkylineGame:
             TextureResource("assets/roof_brick.bmp", True),
             TextureResource("assets/roof_glass.bmp", True),
             TextureResource("assets/roof_steel.bmp", True),
+            TextureResource("assets/roof_canopy.bmp", True),
         ]
+        self.forest_sky_tex = TextureResource("assets/sky_forest.bmp", False)
+        self.player_red_tex = TextureResource("assets/player_red.bmp", True)
+        self.link = LinkManager()
+        self.pick_mode = 0      # 0 = Adventure, 1 = Endless
+        self.pick_players = 0   # 0 = 1P, 1 = 2P Link
+        self.pick_cursor = 0    # 0 = mode picker, 1 = players picker
+        self.is_endless = False
+        self.is_2p = False
+        self.endless_seed = 1337
+        self.chunk_idx = 0
+        self.coins = 0
+        self.upgrade_cursor = 0
+        self.endless_upgrades = {w["id"]: {"rate": 0, "dmg": 0, "size": 0} for w in WEAPONS}
+        self.remote_sprite = Sprite2DNode(
+            position=Vector2(-999, 999),
+            texture=self.player_red_tex,
+            transparent_color=TRANSPARENT_KEY,
+            frame_count_x=6,
+            playing=False,
+            opacity=0.0,
+            layer=9,
+        )
         self.prop_textures = {
             "ac": TextureResource("assets/prop_ac.bmp", True),
             "watertower": TextureResource("assets/prop_watertower.bmp", True),
@@ -404,7 +429,7 @@ class SkylineGame:
 
         if self.sector_idx != self._hud_last_sector:
             self._hud_last_sector = self.sector_idx
-            self.hud_sector.text = SECTORS[self.sector_idx]["tag"]
+            self.hud_sector.text = "C{}".format(self.chunk_idx + 1) if self.is_endless else SECTORS[self.sector_idx]["tag"]
 
         if self.score != self._hud_last_score:
             self._hud_last_score = self.score
@@ -427,10 +452,20 @@ class SkylineGame:
             self.boss_lbl_bg.opacity = 0.0
             self.boss_label.opacity = 0.0
 
+    def _current_sec(self):
+        if self.is_endless:
+            return generate_endless_chunk(self.chunk_idx, self.endless_seed + self.chunk_idx * 7919)
+        return SECTORS[self.sector_idx]
+
     def _load_sector(self, idx, reset_hp=False):
         self.sector_idx = idx
-        sec = SECTORS[idx]
-        engine_draw.set_background(self.sky_textures[idx])
+        self.chunk_idx = idx
+        sec = self._current_sec()
+        if self.is_endless:
+            sky_tex = self.forest_sky_tex if (idx % 2 == 1) else self.sky_textures[idx % len(self.sky_textures)]
+            engine_draw.set_background(sky_tex)
+        else:
+            engine_draw.set_background(self.sky_textures[idx])
 
         self.buildings = sec["buildings"]
         self.props = sec["props"]
@@ -463,22 +498,42 @@ class SkylineGame:
         self._update_world_render()
         self._update_hud()
 
-    def _enter_title(self):
-        self.state = STATE_TITLE
-        self._set_hud_visible(False)
-        best_line = "BEST: {:05d}".format(self.best_score) if self.best_score > 0 else "5 GUNS - 4 SECTORS"
+    def _refresh_title_pickers(self):
+        m_txt = "ADVENTURE" if self.pick_mode == 0 else "ENDLESS"
+        p_txt = "1P SOLO" if self.pick_players == 0 else "2P LINK"
+        l1 = ("> " if self.pick_cursor == 0 else "  ") + "MODE: <" + m_txt + ">"
+        l2 = ("> " if self.pick_cursor == 1 else "  ") + "PLAY: <" + p_txt + ">"
+        best_line = "BEST: {:05d}".format(self.best_score) if self.best_score > 0 else "5 GUNS - 6 SECTORS"
         self._show_overlay(
             "SKYLINE STRIKE",
             best_line,
-            "A:JUMP  B:SHOOT",
-            "LB/RB:SWITCH GUN",
+            l1,
+            l2,
             "PRESS A TO START",
-            COL_OV_CYAN,
+            COL_OV_TITLE,
         )
 
+    def _enter_title(self):
+        self.state = STATE_TITLE
+        self._set_hud_visible(False)
+        self._refresh_title_pickers()
+
     def _start_new_game(self):
+        try:
+            engine_audio.stop(3)
+        except Exception:
+            pass
+        self._hide_overlay()
+        self.is_endless = (self.pick_mode == 1)
+        self.is_2p = (self.pick_players == 1)
+        if self.is_2p:
+            self.link.start()
+        else:
+            self.link.stop()
+        self.remote_sprite.opacity = 0.0
         self.score = 0
         self.kills = 0
+        self.chunk_idx = 0
         self.player.equip(0)
         self._load_sector(0, reset_hp=True)
         self._hide_overlay()
@@ -587,8 +642,45 @@ class SkylineGame:
             self.ov_title.opacity = intro_t
             self.ov_prompt.opacity = (1.0 if ((int(self.time_acc * 3.0) & 1) == 0) else 0.45) if intro_t >= 0.9 else intro_t
             self._update_world_render()
-            if engine_io.A.is_just_pressed or engine_io.B.is_just_pressed:
+            if engine_io.UP.is_just_pressed or engine_io.DOWN.is_just_pressed:
+                self.pick_cursor = 1 - self.pick_cursor
+                self._refresh_title_pickers()
+            elif engine_io.LEFT.is_just_pressed or engine_io.RIGHT.is_just_pressed:
+                if self.pick_cursor == 0:
+                    self.pick_mode = 1 - self.pick_mode
+                else:
+                    self.pick_players = 1 - self.pick_players
+                self._refresh_title_pickers()
+            elif engine_io.A.is_just_pressed or engine_io.B.is_just_pressed:
                 self._start_new_game()
+            return
+
+        if self.state == STATE_UPGRADE:
+            if engine_io.UP.is_just_pressed:
+                self.upgrade_cursor = (self.upgrade_cursor - 1) % 5
+                self._refresh_upgrade_overlay()
+            elif engine_io.DOWN.is_just_pressed:
+                self.upgrade_cursor = (self.upgrade_cursor + 1) % 5
+                self._refresh_upgrade_overlay()
+            elif engine_io.MENU.is_just_pressed or (engine_io.A.is_just_pressed and self.upgrade_cursor == 4):
+                self._hide_overlay()
+                self.state = STATE_PLAYING
+            elif engine_io.A.is_just_pressed:
+                wid = self.player.current_weapon()["id"]
+                up = self.endless_upgrades[wid]
+                if self.upgrade_cursor == 3:
+                    for k in self.endless_upgrades:
+                        self.endless_upgrades[k]["rate"] = 0
+                        self.endless_upgrades[k]["dmg"] = 0
+                        self.endless_upgrades[k]["size"] = 0
+                    self._show_toast("UPGRADES RESET", COL_SPARK_GOLD, 1.0)
+                else:
+                    key = ("rate", "dmg", "size")[self.upgrade_cursor]
+                    if self.coins >= 5 and up[key] < 5:
+                        self.coins -= 5
+                        up[key] += 1
+                        self.play_sfx("pickup", 3)
+                self._refresh_upgrade_overlay()
             return
 
         if self.state == STATE_PAUSED:
@@ -616,7 +708,8 @@ class SkylineGame:
                 self.player.hp = min(self.player.max_hp, self.player.hp + 1)
                 self._update_hud()
                 self.state = STATE_PLAYING
-                self._show_toast(SECTORS[next_idx]["tag"] + ": " + SECTORS[next_idx]["name"], COL_SPARK_CYAN, 1.4)
+                tag_name = "ENDLESS #{}".format(next_idx + 1) if self.is_endless else (SECTORS[next_idx]["tag"] + ": " + SECTORS[next_idx]["name"])
+                self._show_toast(tag_name, COL_SPARK_CYAN, 1.4)
             return
 
         if self.state in (STATE_GAMEOVER, STATE_VICTORY):
@@ -630,8 +723,13 @@ class SkylineGame:
         # === STATE_PLAYING ===
         if engine_io.MENU.is_just_pressed:
             self.player.stop_rumble()
-            self.state = STATE_PAUSED
-            self._refresh_pause_overlay()
+            if self.is_endless:
+                self.upgrade_cursor = 0
+                self.state = STATE_UPGRADE
+                self._refresh_upgrade_overlay()
+            else:
+                self.state = STATE_PAUSED
+                self._refresh_pause_overlay()
             return
 
         if engine_io.RB.is_just_pressed:
@@ -656,7 +754,14 @@ class SkylineGame:
         )
 
         if engine_io.B.is_pressed:
-            shake = self.player.try_fire(self.bullets, self.fx, self.play_sfx)
+            if self.is_endless:
+                up = self.endless_upgrades[self.player.current_weapon()["id"]]
+                rate_mult = max(0.45, 1.0 - up["rate"] * 0.1)
+                dmg_bonus = up["dmg"] * 4
+                bh_bonus = up["size"]
+                shake = self.player.try_fire(self.bullets, self.fx, self.play_sfx, rate_mult, dmg_bonus, bh_bonus)
+            else:
+                shake = self.player.try_fire(self.bullets, self.fx, self.play_sfx)
             if shake > 0.0:
                 self.shake_timer = 0.14
                 self.shake_mag = max(self.shake_mag, shake)
@@ -666,9 +771,30 @@ class SkylineGame:
         if gained > 0:
             self.score += gained
             self.kills += kills
+            if self.is_endless:
+                self.coins += kills * 2
             self.shake_timer = 0.14
             self.shake_mag = max(self.shake_mag, 1.6)
         self.fx.update(dt)
+
+        if self.is_2p:
+            self.link.sync(
+                self.player.x,
+                self.player.y,
+                self.player.facing,
+                self.player.weapon_idx,
+                self.player.hp,
+                engine_io.B.is_pressed,
+                self.sector_idx,
+                self.score,
+            )
+            if self.link.remote_seen:
+                set_pos(self.remote_sprite, self.link.remote_x, self.link.remote_y)
+                self.remote_sprite.scale.x = 1.0 if self.link.remote_facing >= 0 else -1.0
+                self.remote_sprite.opacity = 1.0
+                if self.link.remote_sector > self.sector_idx:
+                    self._load_sector(self.link.remote_sector, reset_hp=False)
+                    return
 
         if self.player.hp <= 0:
             self.player.stop_rumble()
@@ -749,6 +875,30 @@ class SkylineGame:
                     "PRESS A PLAY AGAIN",
                     COL_SPARK_GOLD,
                 )
+
+    def _refresh_upgrade_overlay(self):
+        w = self.player.current_weapon()
+        up = self.endless_upgrades[w["id"]]
+        items = [
+            "RATE LV{} (5C)".format(up["rate"]),
+            "DMG  LV{} (5C)".format(up["dmg"]),
+            "SIZE LV{} (5C)".format(up["size"]),
+            "RESET UPGRADES",
+            "RESUME",
+        ]
+        c = self.upgrade_cursor
+        l1 = ("> " if c == 0 else "  ") + items[0]
+        l2 = ("> " if c == 1 else "  ") + items[1]
+        l3 = ("> " if c == 2 else "  ") + items[2]
+        pr = ("> " if c >= 3 else "  ") + items[c if c >= 3 else 4]
+        self._show_overlay(
+            "UPGRADE " + w["short"] + " C:" + str(self.coins),
+            l1,
+            l2,
+            l3,
+            pr,
+            COL_OV_TITLE,
+        )
 
     def _refresh_pause_overlay(self):
         w = self.player.current_weapon()

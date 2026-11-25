@@ -243,7 +243,105 @@ g2 = SkylineGame(headless_fast=True)
     console.log(`  PASS: Fresh SkylineGame loaded persisted best_score=${best2}!`);
   }
 
-  console.log("\nALL 9 EXTENDED STRESS TESTS PASSED!");
+  // 10. Title Screen 2 Pickers (Adventure/Endless x 1P/2P)
+  {
+    console.log("[10/12] Testing Title Screen 2 Pickers...");
+    const emu = new ThumbyColorHeadlessEmulator({
+      cacheDir: path.join(ROOT, ".cache", "emulator"),
+    });
+    await emu.init();
+    emu.mountDirectory(GAME_DIR, "/Games/SkylineStrike");
+    await emu.runPython(`
+import gc, sys, os, json, engine_main, engine_save
+engine_save._init_saves_dir("/Saves/Games/SkylineStrike")
+sys.path.append("/Games/SkylineStrike")
+os.chdir("/Games/SkylineStrike")
+from game import SkylineGame
+g = SkylineGame(headless_fast=True)
+`);
+    await stepFrames(emu, 2, 0);
+    // Toggle mode -> Endless (RIGHT), then cursor -> Players (DOWN), then players -> 2P (RIGHT)
+    await stepFrames(emu, 1, BUTTONS.RIGHT);
+    await stepFrames(emu, 1, 0);
+    await stepFrames(emu, 1, BUTTONS.DOWN);
+    await stepFrames(emu, 1, 0);
+    await stepFrames(emu, 1, BUTTONS.RIGHT);
+    await stepFrames(emu, 1, 0);
+    const picks = await evalJson(emu, `{"mode": g.pick_mode, "players": g.pick_players}`);
+    assert.equal(picks.mode, 1, "Expected Endless mode selected");
+    assert.equal(picks.players, 1, "Expected 2P Link selected");
+    await stepFrames(emu, 1, BUTTONS.A);
+    await stepFrames(emu, 2, 0);
+    const started = await evalJson(emu, `{"is_endless": g.is_endless, "is_2p": g.is_2p}`);
+    assert.equal(started.is_endless, true, "Expected is_endless=True");
+    assert.equal(started.is_2p, true, "Expected is_2p=True");
+    console.log("  PASS: Title 2 Pickers (Endless + 2P Link) selected & started!");
+  }
+
+  // 11. Endless Mode: coins, Upgrade Store, Reset Upgrades, Adventure unaffected
+  {
+    console.log("[11/12] Testing Endless Mode Upgrade Store & Reset...");
+    const emu = await bootGame();
+    await emu.runPython(`
+g.is_endless = True
+g.coins = 20
+`);
+    await stepFrames(emu, 1, BUTTONS.MENU);
+    await stepFrames(emu, 1, 0);
+    const stUp = await getState(emu);
+    assert.equal(stUp.state, 6, `Expected STATE_UPGRADE (6), got ${stUp.state}`);
+    // Buy RATE, DMG, SIZE
+    await stepFrames(emu, 1, BUTTONS.A); // buy rate
+    await stepFrames(emu, 1, 0);
+    await stepFrames(emu, 1, BUTTONS.DOWN);
+    await stepFrames(emu, 1, 0);
+    await stepFrames(emu, 1, BUTTONS.A); // buy dmg
+    await stepFrames(emu, 1, 0);
+    const up1 = await evalJson(emu, `{"coins": g.coins, "rate": g.endless_upgrades["pistol"]["rate"], "dmg": g.endless_upgrades["pistol"]["dmg"]}`);
+    assert.equal(up1.coins, 10, "Expected 10 coins remaining after 2 upgrades");
+    assert.equal(up1.rate, 1, "Expected rate lv1");
+    assert.equal(up1.dmg, 1, "Expected dmg lv1");
+    // Reset upgrades (cursor 3)
+    await stepFrames(emu, 1, BUTTONS.DOWN);
+    await stepFrames(emu, 1, 0);
+    await stepFrames(emu, 1, BUTTONS.DOWN);
+    await stepFrames(emu, 1, 0);
+    await stepFrames(emu, 1, BUTTONS.A);
+    await stepFrames(emu, 1, 0);
+    const upReset = await evalJson(emu, `g.endless_upgrades["pistol"]`);
+    assert.equal(upReset.rate, 0, "Expected rate reset to 0");
+    assert.equal(upReset.dmg, 0, "Expected dmg reset to 0");
+    console.log("  PASS: Endless Upgrade Store (buy + reset) works cleanly!");
+  }
+
+  // 12. 2P Link Cable loopback sync & shared sector advance
+  {
+    console.log("[12/12] Testing 2P Link Cable loopback sync & shared sector advance...");
+    const emu = await bootGame();
+    await emu.runPython(`
+class MockLink:
+    def __init__(self):
+        self.buf = bytearray()
+    def connected(self): return True
+    def is_host(self): return True
+    def send(self, data): self.buf.extend(data)
+    def available(self): return len(self.buf)
+    def read(self, n):
+        out = bytes(self.buf[:n])
+        self.buf = self.buf[n:]
+        return out
+g.is_2p = True
+g.link.mock = MockLink()
+g.link.start()
+`);
+    await stepFrames(emu, 2, 0);
+    const r = await evalJson(emu, `{"seen": g.link.remote_seen, "op": g.remote_sprite.opacity}`);
+    assert.equal(r.seen, true, "Expected remote player seen via LinkManager");
+    assert.equal(r.op, 1.0, "Expected remote_sprite visible");
+    console.log("  PASS: 2P Link Cable loopback sync & remote sprite verified!");
+  }
+
+  console.log("\nALL 12 EXTENDED STRESS TESTS PASSED!");
 }
 
 main().catch((err) => {

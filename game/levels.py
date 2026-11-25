@@ -175,4 +175,121 @@ SECTORS = [
         "beacon": (644, 30),
         "has_boss": True,
     },
+    {
+        "tag": "S5",
+        "name": "CANOPY EDGE",
+        "sky": "assets/sky_forest.bmp",
+        "spawn": (4, 24),
+        "buildings": [
+            (-32, 112, 34, 3),
+            (108, 104, 26, 3),
+            (238, 116, 30, 3),
+            (380, 100, 22, 3),
+            (504, 144, 28, 3),
+        ],
+        "props": [
+            (32, 34, "ac"),
+            (152, 26, "watertower"),
+            (284, 30, "ac"),
+            (422, 22, "antenna"),
+        ],
+        "enemies": [
+            ("scout", 140, 13, 116, 194),
+            ("drone", 204, -10, 136, 232),
+            ("hopper", 280, 17, 246, 334),
+            ("turret", 418, 17, 418, 418),
+            ("scout", 548, 15, 514, 610),
+        ],
+        "pickups": [
+            ("med", 152, 6),
+            ("star", 284, 10),
+            ("med", 548, 10),
+        ],
+        "beacon": (628, 28),
+        "has_boss": False,
+    },
+    {
+        "tag": "S6",
+        "name": "ELDER GROVE",
+        "sky": "assets/sky_forest.bmp",
+        "spawn": (4, 24),
+        "buildings": [
+            (-32, 112, 34, 3),
+            (106, 96, 24, 3),
+            (228, 116, 32, 3),
+            (372, 104, 22, 3),
+            (500, 160, 30, 3),
+        ],
+        "props": [
+            (40, 34, "ac"),
+            (148, 24, "ac"),
+            (276, 32, "watertower"),
+            (414, 22, "ac"),
+            (548, 30, "antenna"),
+        ],
+        "enemies": [
+            ("hopper", 142, 11, 114, 186),
+            ("drone", 202, -12, 130, 226),
+            ("turret", 294, 27, 294, 294),
+            ("scout", 408, 9, 380, 456),
+            ("boss", 610, -4, 518, 646),
+        ],
+        "pickups": [
+            ("star", 148, 4),
+            ("med", 276, 12),
+            ("star", 414, 2),
+        ],
+        "beacon": (644, 30),
+        "has_boss": True,
+    },
 ]
+
+
+def generate_endless_chunk(chunk_idx, seed):
+    import random
+    random.seed(seed)
+    rng = random
+    has_boss = (chunk_idx > 0) and ((chunk_idx % 3) == 2)
+    is_forest = (chunk_idx % 2) == 1
+    sky = "assets/sky_forest.bmp" if is_forest else ("assets/sky_neon.bmp" if chunk_idx % 4 == 0 else "assets/sky_spire.bmp")
+    style = 3 if is_forest else (chunk_idx % 3)
+
+    buildings = [(-32, 112, 34, style)]
+    props = [(28, 34, "ac")]
+    enemies = []
+    pickups = []
+
+    x = 104
+    for i in range(4):
+        w = rng.choice([96, 112, 128]) if i < 3 else 156
+        y = rng.choice([24, 28, 32, 36])
+        buildings.append((x, y, w, style))
+        if rng.random() < 0.7:
+            props.append((x + w // 2, y, rng.choice(["ac", "antenna", "watertower"])))
+        if i < 3:
+            kind = rng.choice(["scout", "drone", "hopper", "turret"])
+            ey = y - 13 if kind != "drone" else y - 34
+            enemies.append((kind, x + w // 2, ey, x + 10, x + w - 10))
+            if rng.random() < 0.55:
+                pickups.append((rng.choice(["med", "star"]), x + w // 2, y - 20))
+        else:
+            if has_boss:
+                enemies.append(("boss", x + w - 42, y - 34, x + 14, x + w - 14))
+            else:
+                enemies.append(("scout", x + w // 2, y - 13, x + 12, x + w - 12))
+        x += w + rng.choice([24, 28, 32])
+
+    last_x, last_y, last_w, _ = buildings[-1]
+    beacon_x = last_x + last_w - 18
+    return {
+        "tag": "C{}".format(chunk_idx + 1),
+        "name": "ENDLESS #{}".format(chunk_idx + 1),
+        "sky": sky,
+        "spawn": (4, 24),
+        "buildings": buildings,
+        "props": props,
+        "enemies": enemies,
+        "pickups": pickups,
+        "beacon": (beacon_x, last_y),
+        "has_boss": has_boss,
+    }
