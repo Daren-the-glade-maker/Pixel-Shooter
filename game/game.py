@@ -846,20 +846,20 @@ class SkylineGame:
         self._update_hud()
 
         bx, by = self.beacon_pos
-        boss_locked = SECTORS[self.sector_idx]["has_boss"] and self.enemies.boss_alive()
+        boss_locked = self._current_sec()["has_boss"] and self.enemies.boss_alive()
         if not boss_locked and abs(self.player.x - bx) < 14.0 and abs(self.player.y - (by - 10.0)) < 20.0:
             self.score += 500
             self._update_hud()
             self.fx.spawn_sparks(bx, by - 12.0, 10, COL_SPARK_CYAN, COL_SPARK_GOLD)
             self.play_sfx("pickup", 3)
-            if self.sector_idx + 1 < len(SECTORS):
+            if self.is_endless or (self.sector_idx + 1 < len(SECTORS)):
                 self.state = STATE_SECTOR_CLEAR
                 self.state_timer = 1.6
-                nxt = SECTORS[self.sector_idx + 1]
+                nxt_name = "ENDLESS #{}".format(self.chunk_idx + 2) if self.is_endless else SECTORS[self.sector_idx + 1]["name"]
                 self._show_overlay(
-                    "SECTOR CLEAR!",
+                    "CHUNK CLEAR!" if self.is_endless else "SECTOR CLEAR!",
                     "+500 ROOF BONUS",
-                    "NEXT: " + nxt["name"],
+                    "NEXT: " + nxt_name,
                     "SHIELD +1 RESTORED",
                     "PRESS A TO CONTINUE",
                     COL_OV_GREEN,
