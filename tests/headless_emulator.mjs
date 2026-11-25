@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -19,10 +20,23 @@ export const BUTTONS = {
 };
 
 const OFFICIAL_REPO = "TinyCircuits/TinyCircuits-MicroPython-Editor";
+const OFFICIAL_REF = "5d7ea7b6";
 const EMULATOR_FILES = [
-    { name: "micropython.mjs", repoPath: "app/src/js/micropython.mjs" },
-    { name: "micropython.wasm", repoPath: "app/src/js/micropython.wasm" },
+    {
+        name: "micropython.mjs",
+        repoPath: "app/src/js/micropython.mjs",
+        sha256: "bb299547961046c929261e4dd294a7900ed2cb021a82a467f74e5eb906620f29",
+    },
+    {
+        name: "micropython.wasm",
+        repoPath: "app/src/js/micropython.wasm",
+        sha256: "e04d11dfa3171bead3ec6996db719c81e67a883a358a8ac3b62b8e4dbaa04648",
+    },
 ];
+
+function sha256File(filePath) {
+    return createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
+}
 
 /**
  * Ensures the official Thumby Color WebAssembly emulator files from
@@ -32,31 +46,37 @@ export async function ensureOfficialEmulator(cacheDir) {
     fs.mkdirSync(cacheDir, { recursive: true });
     for (const file of EMULATOR_FILES) {
         const dest = path.join(cacheDir, file.name);
-        if (fs.existsSync(dest) && fs.statSync(dest).size > 1024) {
+        if (fs.existsSync(dest) && sha256File(dest) === file.sha256) {
             continue;
         }
+        const tmp = dest + ".tmp";
         // Prefer gh CLI (works through api.github.com), fall back to fetch
         let downloaded = false;
         try {
             const buf = execFileSync(
                 "gh",
-                ["api", "-H", "Accept: application/vnd.github.raw+json", `repos/${OFFICIAL_REPO}/contents/${file.repoPath}`],
+                ["api", "-H", "Accept: application/vnd.github.raw+json", `repos/${OFFICIAL_REPO}/contents/${file.repoPath}?ref=${OFFICIAL_REF}`],
                 { maxBuffer: 16 * 1024 * 1024 }
             );
-            fs.writeFileSync(dest, buf);
+            fs.writeFileSync(tmp, buf);
             downloaded = true;
         } catch {
             // Fall back to direct GitHub raw download
         }
         if (!downloaded) {
-            const url = `https://github.com/${OFFICIAL_REPO}/raw/master/${file.repoPath}`;
+            const url = `https://github.com/${OFFICIAL_REPO}/raw/${OFFICIAL_REF}/${file.repoPath}`;
             const res = await fetch(url);
             if (!res.ok) {
                 throw new Error(`Failed to fetch ${url}: HTTP ${res.status}`);
             }
             const ab = await res.arrayBuffer();
-            fs.writeFileSync(dest, Buffer.from(ab));
+            fs.writeFileSync(tmp, Buffer.from(ab));
         }
+        if (sha256File(tmp) !== file.sha256) {
+            fs.rmSync(tmp, { force: true });
+            throw new Error(`SHA-256 mismatch for ${file.name}`);
+        }
+        fs.renameSync(tmp, dest);
     }
     return {
         mjsPath: path.join(cacheDir, "micropython.mjs"),
